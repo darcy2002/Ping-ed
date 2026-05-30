@@ -53,8 +53,10 @@ const HUMANIZE_RULES = `Write like a real person, not an AI. Avoid these tells:
 - No AI vocabulary: testament, landscape, showcasing, delve, robust, leverage, elevate, foster, seamless, unlock, navigate.
 - Use plain verbs ("is", "has") instead of "serves as", "boasts", "features".
 - No negative parallelisms ("it's not just X, it's Y").
-- No forced rule-of-three lists.
-- No em-dash overuse; prefer commas or periods.
+- No rule-of-three lists, and no forced triads.
+- Never use em dashes (—) or en dashes (–) anywhere. Use commas, periods, or rewrite the sentence.
+- Never restate the prospect's role or job title back to them.
+- Open with one specific thing they did, not their title.
 - No signposting openers ("let's dive in", "here's what you need to know").
 - Cut filler ("in order to" -> "to", "due to the fact that" -> "because").
 - No excessive hedging ("could potentially possibly").
@@ -64,6 +66,20 @@ After drafting, silently re-read the message against these rules and rewrite any
 
 function systemWithEnvelope(systemPrompt: string): string {
   return `${systemPrompt}\n\n---\n${FORMAT_RULES}\n\n${HUMANIZE_RULES}`;
+}
+
+// Deterministic guarantee that no dashes survive, even if the model ignores the
+// rule: replace every em/en dash with a comma, then normalise spacing so there
+// is no leading space before a comma, no doubled spaces, and no ", ," runs.
+function stripDashes(text: string): string {
+  return text
+    .replace(/[—–]/g, ",") // em/en dash -> comma
+    .replace(/[ \t]+,/g, ",") // no space before a comma
+    .replace(/,(?:[ \t]*,)+/g, ",") // collapse ",," / ", ," runs into one comma
+    .replace(/,(?=\S)/g, ", ") // ensure a single space after a comma
+    .replace(/[ \t]{2,}/g, " ") // no double spaces
+    .replace(/[ \t]+\n/g, "\n") // drop trailing spaces on each line
+    .trim();
 }
 
 function contextBlocks(
@@ -81,8 +97,10 @@ function contextBlocks(
   return blocks.join("\n\n");
 }
 
-export function generateOutreach(input: OutreachInput): Promise<LLMResult> {
-  return run("outreach", {
+export async function generateOutreach(
+  input: OutreachInput,
+): Promise<LLMResult> {
+  const result = await run("outreach", {
     system: systemWithEnvelope(input.systemPrompt),
     messages: [
       {
@@ -91,11 +109,12 @@ export function generateOutreach(input: OutreachInput): Promise<LLMResult> {
       },
     ],
   });
+  return { ...result, text: stripDashes(result.text) };
 }
 
 // A reply is the same call with the full thread as history, so the follow-up
 // reads as a continuation rather than a fresh message.
-export function generateReply(input: ReplyInput): Promise<LLMResult> {
+export async function generateReply(input: ReplyInput): Promise<LLMResult> {
   const messages: LLMMessage[] = [
     {
       role: "user",
@@ -108,10 +127,11 @@ export function generateReply(input: ReplyInput): Promise<LLMResult> {
       content: turn.content,
     });
   }
-  return run("reply", {
+  const result = await run("reply", {
     system: systemWithEnvelope(input.systemPrompt),
     messages,
   });
+  return { ...result, text: stripDashes(result.text) };
 }
 
 const ENRICH_SYSTEM =
