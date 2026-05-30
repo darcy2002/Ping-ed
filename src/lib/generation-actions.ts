@@ -19,6 +19,8 @@ export interface GenerateOutreachInput {
   offeringId: string;
   promptId: string;
   prospectId: string;
+  // Optional steer for regenerate — wrapped as an <angle> block in assembly.
+  angle?: string;
 }
 
 export interface GenerateOutreachResult {
@@ -87,11 +89,13 @@ export async function generateOutreachMessage(
     .orderBy(desc(prospectSource.createdAt));
 
   const prospectContext = buildProspectContext(prospectRow.name, sources);
+  const angle = input.angle?.trim() || undefined;
 
   const result = await generateOutreach({
     systemPrompt: promptRow.systemPrompt,
     offering: offeringRow.content || offeringRow.name,
     prospect: prospectContext,
+    angle,
   });
 
   const saved = await db.transaction(async (tx) => {
@@ -112,6 +116,7 @@ export async function generateOutreachMessage(
         role: "outreach",
         content: result.text,
         model: result.model,
+        ...(angle && { angle }),
       })
       .returning();
 

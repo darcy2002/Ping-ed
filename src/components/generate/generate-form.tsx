@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -55,6 +56,7 @@ export function GenerateForm({
   const [result, setResult] = useState<Message | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState(false);
+  const [angle, setAngle] = useState("");
 
   const ready = offeringId && promptId && prospectId;
   const missing: string[] = [];
@@ -62,10 +64,11 @@ export function GenerateForm({
   if (prompts.length === 0) missing.push("a prompt");
   if (prospects.length === 0) missing.push("a prospect");
 
-  async function onGenerate() {
-    if (!ready) return;
+  // Used for the first generation and for regenerate-with-an-angle. The
+  // angle steers a fresh message while reusing the same offering/prompt/prospect.
+  async function runGenerate(steer?: string) {
+    if (!ready || generating) return;
     setError(null);
-    setResult(null);
     setCopied(false);
     setGenerating(true);
     try {
@@ -73,6 +76,7 @@ export function GenerateForm({
         offeringId,
         promptId,
         prospectId,
+        ...(steer && { angle: steer }),
       });
       setResult(res.message);
     } catch (err) {
@@ -82,6 +86,18 @@ export function GenerateForm({
     } finally {
       setGenerating(false);
     }
+  }
+
+  function onGenerate() {
+    setResult(null);
+    setAngle("");
+    void runGenerate();
+  }
+
+  function onRegenerate() {
+    const steer = angle.trim();
+    if (!steer) return;
+    void runGenerate(steer);
   }
 
   async function onCopy() {
@@ -269,6 +285,31 @@ export function GenerateForm({
                   Delete
                 </Button>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t pt-4">
+              <Label htmlFor="angle">Regenerate with a different angle</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="angle"
+                  value={angle}
+                  onChange={(e) => setAngle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && onRegenerate()}
+                  placeholder="e.g. lead with their open-source work; keep it shorter"
+                />
+                <Button
+                  variant="secondary"
+                  onClick={onRegenerate}
+                  disabled={!angle.trim() || generating}
+                >
+                  {generating ? "Regenerating…" : "Regenerate"}
+                </Button>
+              </div>
+              {result.angle && (
+                <p className="text-xs text-muted-foreground">
+                  Current angle: {result.angle}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
