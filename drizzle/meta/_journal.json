@@ -8,6 +8,13 @@
       "when": 1780124697704,
       "tag": "0000_lonely_domino",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780131677920,
+      "tag": "0001_nice_fantastic_four",
+      "breakpoints": true
     }
   ]
 }
