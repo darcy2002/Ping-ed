@@ -3,6 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  Building2,
+  Code2,
+  FileText,
+  Globe,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  RefreshCw,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { enrichProspectSource } from "@/lib/actions";
 import {
   addProspectSource,
@@ -11,11 +23,13 @@ import {
   type ProspectSourceType,
   type ProspectWithSources,
 } from "@/lib/prospect-actions";
+import { Monogram } from "@/components/brand";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -52,7 +66,20 @@ const TYPE_LABELS = Object.fromEntries(
   SOURCE_TYPES.map((t) => [t.value, t.label]),
 ) as Record<ProspectSourceType, string>;
 
-export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) {
+const SOURCE_ICONS: Record<ProspectSourceType, LucideIcon> = {
+  linkedin_screenshot: ImageIcon,
+  github_url: Code2,
+  website_url: Globe,
+  company_url: Building2,
+  other_url: LinkIcon,
+  freetext: FileText,
+};
+
+export function ProspectDetail({
+  prospect,
+}: {
+  prospect: ProspectWithSources;
+}) {
   const router = useRouter();
   const [type, setType] = useState<ProspectSourceType>("linkedin_screenshot");
   const [value, setValue] = useState("");
@@ -158,32 +185,62 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
   }
 
   function statusBadge(status: string, enriching: boolean) {
-    if (enriching) return <Badge variant="secondary">Enriching…</Badge>;
-    if (status === "enriched") return <Badge>Enriched</Badge>;
-    if (status === "failed") return <Badge variant="destructive">Failed</Badge>;
-    return <Badge variant="secondary">Pending</Badge>;
+    if (enriching) {
+      return (
+        <Badge variant="secondary">
+          <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
+          Enriching…
+        </Badge>
+      );
+    }
+    if (status === "enriched") {
+      return (
+        <Badge variant="secondary">
+          <span className="size-1.5 rounded-full bg-success" />
+          Enriched
+        </Badge>
+      );
+    }
+    if (status === "failed") {
+      return (
+        <Badge variant="destructive">
+          <span className="size-1.5 rounded-full bg-destructive" />
+          Failed
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary">
+        <span className="size-1.5 rounded-full bg-muted-foreground/50" />
+        Pending
+      </Badge>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <div className="flex flex-col gap-3">
         <Link
           href="/prospects"
-          className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          ← All prospects
+          <ArrowLeft className="size-4" /> All prospects
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {prospect.name}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Add sources of any type. Each is enriched into clean context on save.
-        </p>
+        <div className="flex items-center gap-3.5">
+          <Monogram name={prospect.name} size={52} />
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {prospect.name}
+          </h1>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Add a source</CardTitle>
+          <CardDescription>
+            Add sources of any type. Each is enriched into clean context on
+            save.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onAddSource} className="flex flex-col gap-4">
@@ -247,6 +304,7 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex justify-end">
               <Button type="submit" disabled={adding}>
+                <Sparkles className="size-4" />
                 {adding ? "Adding…" : "Add & enrich"}
               </Button>
             </div>
@@ -255,7 +313,7 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
       </Card>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           Sources ({sources.length})
         </h2>
         {sources.length === 0 ? (
@@ -267,22 +325,28 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
         ) : (
           sources.map((source) => {
             const enriching = enrichingIds.has(source.id);
+            const SourceIcon = SOURCE_ICONS[source.type] ?? LinkIcon;
             return (
               <Card key={source.id}>
-                <CardContent className="flex flex-col gap-2 py-4">
+                <CardContent className="flex flex-col gap-2.5 py-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {TYPE_LABELS[source.type] ?? source.type}
-                        </span>
-                        {statusBadge(source.status, enriching)}
+                    <div className="flex min-w-0 gap-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+                        <SourceIcon className="size-4" />
+                      </span>
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">
+                            {TYPE_LABELS[source.type] ?? source.type}
+                          </span>
+                          {statusBadge(source.status, enriching)}
+                        </div>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {source.type === "linkedin_screenshot"
+                            ? "Uploaded screenshot"
+                            : source.value}
+                        </p>
                       </div>
-                      <p className="truncate text-sm">
-                        {source.type === "linkedin_screenshot"
-                          ? "Uploaded screenshot"
-                          : source.value}
-                      </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       {source.status === "failed" && !enriching && (
@@ -291,7 +355,7 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
                           size="sm"
                           onClick={() => runEnrich(source.id)}
                         >
-                          Retry
+                          <RefreshCw className="size-3.5" /> Retry
                         </Button>
                       )}
                       <Button

@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ChevronRight, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { deleteProspect, type Prospect } from "@/lib/prospect-actions";
+import { Monogram } from "@/components/brand";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -15,13 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ProspectFormDialog } from "@/components/prospects/prospect-form-dialog";
 
 export function ProspectsManager({ prospects }: { prospects: Prospect[] }) {
@@ -45,32 +42,44 @@ export function ProspectsManager({ prospects }: { prospects: Prospect[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Prospects</h1>
-          <p className="text-sm text-muted-foreground">
-            People you&apos;re reaching out to and the sources you&apos;ve saved
-            on them.
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)}>New prospect</Button>
-      </div>
+      <PageHeader
+        title="Prospects"
+        subtitle="People you're reaching out to and the sources you've saved on them."
+        action={
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" /> New prospect
+          </Button>
+        }
+      />
 
       {prospects.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No prospects yet. Create your first one to get started.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+              <Users className="size-5" />
+            </div>
+            <div className="text-sm font-medium">No prospects yet</div>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Create your first one to get started.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           {prospects.map((prospect) => (
-            <Card key={prospect.id}>
-              <CardHeader>
-                <CardTitle>{prospect.name}</CardTitle>
-              </CardHeader>
-              <CardFooter className="justify-end gap-2">
-                <Button asChild variant="default" size="sm">
+            <Card key={prospect.id} className="flex flex-col gap-0 p-0">
+              <Link
+                href={`/prospects/${prospect.id}`}
+                className="flex items-center gap-3 p-5 transition-colors hover:bg-accent/40"
+              >
+                <Monogram name={prospect.name} size={42} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold">{prospect.name}</div>
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
+              <div className="flex items-center justify-end gap-2 border-t px-4 py-2.5">
+                <Button asChild variant="ghost" size="sm">
                   <Link href={`/prospects/${prospect.id}`}>Manage sources</Link>
                 </Button>
                 <Button
@@ -78,16 +87,17 @@ export function ProspectsManager({ prospects }: { prospects: Prospect[] }) {
                   size="sm"
                   onClick={() => setEditing(prospect)}
                 >
-                  Rename
+                  <Pencil className="size-3.5" /> Rename
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete"
                   onClick={() => setDeleting(prospect)}
                 >
-                  Delete
+                  <Trash2 className="size-4" />
                 </Button>
-              </CardFooter>
+              </div>
             </Card>
           ))}
         </div>
@@ -118,8 +128,8 @@ export function ProspectsManager({ prospects }: { prospects: Prospect[] }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete prospect?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes &ldquo;{deleting?.name}&rdquo; and all its
-              sources. This cannot be undone.
+              This permanently deletes &ldquo;{deleting?.name}&rdquo; and all
+              its sources. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

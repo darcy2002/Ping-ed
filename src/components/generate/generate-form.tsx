@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import {
   generateOutreachMessage,
   generateReplyMessage,
@@ -14,13 +14,9 @@ import {
   setMessageFavourite,
 } from "@/lib/message-actions";
 import { addProspectReply } from "@/lib/conversation-actions";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -196,6 +192,94 @@ export function GenerateForm({
     }
   }
 
+  const inputsPanel =
+    missing.length > 0 ? (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          You need {missing.join(", ")} first. Create them in{" "}
+          <Link className="underline" href="/offerings">
+            Offerings
+          </Link>
+          ,{" "}
+          <Link className="underline" href="/prompts">
+            Prompts
+          </Link>
+          , and{" "}
+          <Link className="underline" href="/prospects">
+            Prospects
+          </Link>
+          .
+        </CardContent>
+      </Card>
+    ) : (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Inputs</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="offering">Offering</Label>
+            <Select value={offeringId} onValueChange={setOfferingId}>
+              <SelectTrigger id="offering" className="w-full">
+                <SelectValue placeholder="Choose an offering" />
+              </SelectTrigger>
+              <SelectContent>
+                {offerings.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="prompt">Prompt</Label>
+            <Select value={promptId} onValueChange={setPromptId}>
+              <SelectTrigger id="prompt" className="w-full">
+                <SelectValue placeholder="Choose a prompt" />
+              </SelectTrigger>
+              <SelectContent>
+                {prompts.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                    {p.isDefault ? " (default)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="prospect">Prospect</Label>
+            <Select value={prospectId} onValueChange={setProspectId}>
+              <SelectTrigger id="prospect" className="w-full">
+                <SelectValue placeholder="Choose a prospect" />
+              </SelectTrigger>
+              <SelectContent>
+                {prospects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <Button
+            onClick={onGenerate}
+            disabled={!ready || generating}
+            className="w-full"
+          >
+            <Sparkles className="size-4" />
+            {generating ? "Generating…" : "Generate"}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -206,218 +290,181 @@ export function GenerateForm({
         </p>
       </div>
 
-      {missing.length > 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            You need {missing.join(", ")} first. Create them in{" "}
-            <Link className="underline" href="/offerings">
-              Offerings
-            </Link>
-            ,{" "}
-            <Link className="underline" href="/prompts">
-              Prompts
-            </Link>
-            , and{" "}
-            <Link className="underline" href="/prospects">
-              Prospects
-            </Link>
-            .
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Inputs</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="offering">Offering</Label>
-              <Select value={offeringId} onValueChange={setOfferingId}>
-                <SelectTrigger id="offering" className="w-full">
-                  <SelectValue placeholder="Choose an offering" />
-                </SelectTrigger>
-                <SelectContent>
-                  {offerings.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="grid gap-5 lg:grid-cols-[340px_1fr] lg:items-start">
+        <div className="lg:sticky lg:top-20">{inputsPanel}</div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="prompt">Prompt</Label>
-              <Select value={promptId} onValueChange={setPromptId}>
-                <SelectTrigger id="prompt" className="w-full">
-                  <SelectValue placeholder="Choose a prompt" />
-                </SelectTrigger>
-                <SelectContent>
-                  {prompts.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                      {p.isDefault ? " (default)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="prospect">Prospect</Label>
-              <Select value={prospectId} onValueChange={setProspectId}>
-                <SelectTrigger id="prospect" className="w-full">
-                  <SelectValue placeholder="Choose a prospect" />
-                </SelectTrigger>
-                <SelectContent>
-                  {prospects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-
-            <div className="flex justify-end">
-              <Button onClick={onGenerate} disabled={!ready || generating}>
-                {generating ? "Generating…" : "Generate"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {thread.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Conversation</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3">
-              {thread.map((m) =>
-                m.role === "outreach" ? (
-                  <div key={m.id} className="rounded-md bg-muted/50 p-3">
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      You · Outreach
-                      {m.angle ? ` · angle: ${m.angle}` : ""}
-                    </p>
-                    <p className="whitespace-pre-wrap text-sm">{m.content}</p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <Button
-                        variant={m.rating === 1 ? "default" : "outline"}
-                        size="icon"
-                        onClick={() => onRate(m, 1)}
-                        disabled={pending}
-                        aria-label="Thumbs up"
-                        aria-pressed={m.rating === 1}
+        <div>
+          {thread.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+                <div className="grid size-13 place-items-center rounded-xl bg-muted text-muted-foreground">
+                  <Sparkles className="size-6" />
+                </div>
+                <div>
+                  <div className="font-semibold">No message yet</div>
+                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    Choose an offering, a prompt, and a prospect — then
+                    generate.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Conversation</CardTitle>
+                  <span className="text-xs text-muted-foreground">
+                    {thread.length} message{thread.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
+                  {thread.map((m) =>
+                    m.role === "outreach" ? (
+                      <div
+                        key={m.id}
+                        className="rounded-lg border bg-surface p-3.5"
                       >
-                        <ThumbsUp className="size-4" />
-                      </Button>
-                      <Button
-                        variant={m.rating === -1 ? "default" : "outline"}
-                        size="icon"
-                        onClick={() => onRate(m, -1)}
-                        disabled={pending}
-                        aria-label="Thumbs down"
-                        aria-pressed={m.rating === -1}
-                      >
-                        <ThumbsDown className="size-4" />
-                      </Button>
-                      <Button
-                        variant={m.isFavourite ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => onToggleFavourite(m)}
-                        disabled={pending}
-                        aria-pressed={m.isFavourite}
-                      >
-                        {m.isFavourite ? "★ Favourited" : "☆ Favourite"}
-                      </Button>
-                      <div className="ml-auto flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onCopy(m)}
-                        >
-                          {copiedId === m.id ? "Copied" : "Copy"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onDelete(m)}
-                          disabled={pending}
-                        >
-                          Delete
-                        </Button>
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            You · Outreach
+                          </span>
+                          {m.angle && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[0.65rem]"
+                            >
+                              angle: {m.angle}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm">
+                          {m.content}
+                        </p>
+                        <div className="mt-3 flex items-center gap-2">
+                          <Button
+                            variant={m.rating === 1 ? "default" : "outline"}
+                            size="icon"
+                            onClick={() => onRate(m, 1)}
+                            disabled={pending}
+                            aria-label="Thumbs up"
+                            aria-pressed={m.rating === 1}
+                          >
+                            <ThumbsUp className="size-4" />
+                          </Button>
+                          <Button
+                            variant={m.rating === -1 ? "default" : "outline"}
+                            size="icon"
+                            onClick={() => onRate(m, -1)}
+                            disabled={pending}
+                            aria-label="Thumbs down"
+                            aria-pressed={m.rating === -1}
+                          >
+                            <ThumbsDown className="size-4" />
+                          </Button>
+                          <Button
+                            variant={m.isFavourite ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => onToggleFavourite(m)}
+                            disabled={pending}
+                            aria-pressed={m.isFavourite}
+                          >
+                            {m.isFavourite ? "★ Favourited" : "☆ Favourite"}
+                          </Button>
+                          <div className="ml-auto flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onCopy(m)}
+                            >
+                              {copiedId === m.id ? "Copied" : "Copy"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onDelete(m)}
+                              disabled={pending}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div
+                        key={m.id}
+                        className="rounded-lg border bg-card p-3.5"
+                      >
+                        <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                          Prospect reply
+                        </p>
+                        <p className="whitespace-pre-wrap text-sm">
+                          {m.content}
+                        </p>
+                      </div>
+                    ),
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 border-t pt-4">
+                  <Label htmlFor="reply">Paste a prospect reply</Label>
+                  <Textarea
+                    id="reply"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Paste what the prospect wrote back…"
+                    rows={3}
+                    className="max-h-40 overflow-y-auto"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    {canFollowUp && (
+                      <Button onClick={onFollowUp} disabled={followingUp}>
+                        {followingUp ? "Generating…" : "Generate follow-up"}
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      onClick={onAddReply}
+                      disabled={!replyText.trim() || addingReply}
+                    >
+                      {addingReply ? "Adding…" : "Add reply"}
+                    </Button>
                   </div>
-                ) : (
-                  <div key={m.id} className="rounded-md border p-3">
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      Prospect reply
+                </div>
+
+                <div className="flex flex-col gap-2 border-t pt-4">
+                  <Label htmlFor="angle">
+                    Regenerate with a different angle
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="angle"
+                      value={angle}
+                      onChange={(e) => setAngle(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && onRegenerate()}
+                      placeholder="e.g. lead with their open-source work; keep it shorter"
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={onRegenerate}
+                      disabled={!angle.trim() || generating}
+                    >
+                      {generating ? "Regenerating…" : "Regenerate"}
+                    </Button>
+                  </div>
+                  {latestOutreach?.angle && (
+                    <p className="text-xs text-muted-foreground">
+                      Current angle: {latestOutreach.angle}
                     </p>
-                    <p className="whitespace-pre-wrap text-sm">{m.content}</p>
-                  </div>
-                ),
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2 border-t pt-4">
-              <Label htmlFor="reply">Paste a prospect reply</Label>
-              <Textarea
-                id="reply"
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Paste what the prospect wrote back…"
-                rows={3}
-                className="max-h-40 overflow-y-auto"
-              />
-              <div className="flex items-center justify-end gap-2">
-                {canFollowUp && (
-                  <Button onClick={onFollowUp} disabled={followingUp}>
-                    {followingUp ? "Generating…" : "Generate follow-up"}
-                  </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  onClick={onAddReply}
-                  disabled={!replyText.trim() || addingReply}
-                >
-                  {addingReply ? "Adding…" : "Add reply"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 border-t pt-4">
-              <Label htmlFor="angle">Regenerate with a different angle</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="angle"
-                  value={angle}
-                  onChange={(e) => setAngle(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && onRegenerate()}
-                  placeholder="e.g. lead with their open-source work; keep it shorter"
-                />
-                <Button
-                  variant="secondary"
-                  onClick={onRegenerate}
-                  disabled={!angle.trim() || generating}
-                >
-                  {generating ? "Regenerating…" : "Regenerate"}
-                </Button>
-              </div>
-              {latestOutreach?.angle && (
-                <p className="text-xs text-muted-foreground">
-                  Current angle: {latestOutreach.angle}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

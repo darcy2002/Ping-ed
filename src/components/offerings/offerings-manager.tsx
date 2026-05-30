@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Layers, Link as LinkIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { deleteOffering, type Offering } from "@/lib/offering-actions";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -45,62 +47,79 @@ export function OfferingsManager({ offerings }: { offerings: Offering[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Offerings</h1>
-          <p className="text-sm text-muted-foreground">
-            What you&apos;re pitching. Reused across every generated message.
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)}>New offering</Button>
-      </div>
+      <PageHeader
+        title="Offerings"
+        subtitle="What you're pitching. Reused across every generated message."
+        action={
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" /> New offering
+          </Button>
+        }
+      />
 
       {offerings.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No offerings yet. Create your first one to get started.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+              <Layers className="size-5" />
+            </div>
+            <div className="text-sm font-medium">No offerings yet</div>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Create your first one to get started.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {offerings.map((offering) => (
-            <Card key={offering.id}>
+            <Card key={offering.id} className="flex flex-col">
               <CardHeader>
-                <CardTitle>{offering.name}</CardTitle>
-                {offering.sourceUrl && (
-                  <CardDescription className="truncate">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="min-w-0 leading-snug">
+                    {offering.name}
+                  </CardTitle>
+                  <Layers className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                </div>
+                {offering.sourceUrl ? (
+                  <CardDescription className="flex items-center gap-1.5 truncate">
+                    <LinkIcon className="size-3 shrink-0" />
                     <a
                       href={offering.sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline"
+                      className="truncate underline"
                     >
-                      {offering.sourceUrl}
+                      {offering.sourceUrl.replace(/^https?:\/\//, "")}
                     </a>
+                  </CardDescription>
+                ) : (
+                  <CardDescription className="opacity-70">
+                    Pasted content
                   </CardDescription>
                 )}
               </CardHeader>
-              {offering.content && (
-                <CardContent>
+              <CardContent className="flex-1">
+                {offering.content && (
                   <p className="line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">
                     {offering.content}
                   </p>
-                </CardContent>
-              )}
+                )}
+              </CardContent>
               <CardFooter className="justify-end gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setEditing(offering)}
                 >
-                  Edit
+                  <Pencil className="size-3.5" /> Edit
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete"
                   onClick={() => setDeleting(offering)}
                 >
-                  Delete
+                  <Trash2 className="size-4" />
                 </Button>
               </CardFooter>
             </Card>

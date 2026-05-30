@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   deletePrompt,
   setDefaultPrompt,
   type Prompt,
 } from "@/lib/prompt-actions";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -19,13 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { PromptFormDialog } from "@/components/prompts/prompt-form-dialog";
 
 export function PromptsManager({ prompts }: { prompts: Prompt[] }) {
@@ -60,65 +56,75 @@ export function PromptsManager({ prompts }: { prompts: Prompt[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Prompts</h1>
-          <p className="text-sm text-muted-foreground">
-            How messages get written. The default is used when you generate.
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)}>New prompt</Button>
-      </div>
+      <PageHeader
+        title="Prompts"
+        subtitle="How messages get written. The default is used when you generate."
+        action={
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="size-4" /> New prompt
+          </Button>
+        }
+      />
 
       {prompts.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No prompts yet. Create your first one to get started.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+              <FileText className="size-5" />
+            </div>
+            <div className="text-sm font-medium">No prompts yet</div>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Create your first one to get started.
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="flex flex-col gap-4">
           {prompts.map((prompt) => (
             <Card key={prompt.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {prompt.name}
-                  {prompt.isDefault && <Badge variant="secondary">Default</Badge>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {prompt.systemPrompt}
-                </p>
-              </CardContent>
-              <CardFooter className="justify-end gap-2">
-                {!prompt.isDefault && (
+              <div className="flex items-start gap-4 p-5">
+                <div className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-muted text-muted-foreground">
+                  <FileText className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="font-semibold">{prompt.name}</span>
+                    {prompt.isDefault && <Badge>Default</Badge>}
+                  </div>
+                  <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {prompt.systemPrompt}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!prompt.isDefault && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onSetDefault(prompt.id)}
+                      disabled={settingDefault === prompt.id}
+                    >
+                      {settingDefault === prompt.id
+                        ? "Setting..."
+                        : "Set default"}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditing(prompt)}
+                  >
+                    <Pencil className="size-3.5" /> Edit
+                  </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    onClick={() => onSetDefault(prompt.id)}
-                    disabled={settingDefault === prompt.id}
+                    size="icon-sm"
+                    aria-label="Delete"
+                    onClick={() => setDeleting(prompt)}
                   >
-                    {settingDefault === prompt.id
-                      ? "Setting..."
-                      : "Set default"}
+                    <Trash2 className="size-4" />
                   </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditing(prompt)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleting(prompt)}
-                >
-                  Delete
-                </Button>
-              </CardFooter>
+                </div>
+              </div>
             </Card>
           ))}
         </div>
