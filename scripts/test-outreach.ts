@@ -12,7 +12,7 @@ try {
 async function main() {
   const result = await generateOutreach({
     systemPrompt:
-      "You are warm, concise, and specific. Write a 4-6 sentence LinkedIn connection note. No buzzwords, no flattery. Reference one concrete detail about the prospect. End with a single low-friction question.",
+      "Write a cold outreach message under 70 words in a casual, peer-to-peer tone. Open with ONE specific, genuine observation about the prospect from their context — not flattery. Connect it to the offering in one natural sentence, like someone who actually uses it would say it. Never sound salesy: no buzzwords, no corporate-speak, no feature lists, and never invent numbers or claims not in the context. End with a low-pressure question. Write like you'd message a peer you respect.",
     offering:
       "Pinged — an AI tool that writes hyper-personalized outreach from a prospect's public footprint (GitHub, site, LinkedIn). Saves reps ~30 minutes per message and lifts reply rates.",
     prospect: [

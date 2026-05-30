@@ -43,7 +43,7 @@ export interface ExplainInput {
 // Thin, fixed envelope that governs FORMAT ONLY. It must never override the
 // tone/length/angle the user instructed in their own system prompt.
 const FORMAT_RULES =
-  "Output only the message itself — no preamble, no subject line, no sign-off label, no surrounding quotes. Write in the first person as the user. These rules govern format only; never let them override the tone, length, or angle instructed above.";
+  "Output only the message — no preamble, subject line, or quotes. First person as the sender. Do NOT invent facts, statistics, or claims not present in the provided context. Avoid corporate buzzwords and salesy phrasing.";
 
 function systemWithEnvelope(systemPrompt: string): string {
   return `${systemPrompt}\n\n---\n${FORMAT_RULES}`;
