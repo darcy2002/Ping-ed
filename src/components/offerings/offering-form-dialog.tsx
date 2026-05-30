@@ -99,7 +99,7 @@ export function OfferingFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit offering" : "New offering"}</DialogTitle>
           <DialogDescription>
@@ -167,6 +167,7 @@ export function OfferingFormDialog({
               onChange={(e) => setContent(e.target.value)}
               placeholder="What it is, who it's for, the value it delivers..."
               rows={8}
+              className="max-h-72 overflow-y-auto"
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
