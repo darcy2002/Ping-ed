@@ -15,12 +15,12 @@ The mental model that governs the whole codebase: **this is a context-assembly p
 - **Drizzle ORM + Postgres (Neon)** — typed schema, simple migrations.
 - **Tailwind + shadcn/ui** — use shadcn components; do not hand-roll UI primitives.
 - **Jina Reader** (`https://r.jina.ai/<url>`) — URL -> markdown, free, zero-setup. Used for GitHub / portfolio / company URLs.
-- **OpenRouter** — LLM access, but ALWAYS behind our internal gateway (see AI layer). Default model `google/gemini-3.5-flash` (handles both writing and vision).
+- **Gemini (Google AI Studio, free tier)** — LLM access via its OpenAI-compatible endpoint, but ALWAYS behind our internal gateway (see AI layer). Model `gemini-3.5-flash` for ALL tasks (handles both writing and vision). The OpenAI-compatible wire format keeps the adapter generic, not vendor-locked.
 - **Deploy: Vercel.** Deploy a blank skeleton on day 1 so the live link is never a last-minute risk.
 
 ## Architecture principles (non-negotiable)
 
-1. **All AI calls go through `ai/tasks.ts`.** Nothing else in the codebase imports OpenRouter or calls a model directly. This is the seam that lets us swap providers.
+1. **All AI calls go through `ai/tasks.ts`.** Nothing else in the codebase imports a provider SDK or calls a model directly. This is the seam that lets us swap providers.
 2. **Two-phase AI.** Expensive context-gathering (scrape + distill + vision) happens ONCE when a prospect/source is saved, and is stored in `prospect_source.extracted_context`. Generation at request-time only assembles already-clean context. Never re-scrape during generation.
 3. **Auth on every query.** Every product query filters by `user_id` from the validated session, checked in the route handler / server action that returns data — NOT only in middleware. (Next 16 renamed `middleware.ts` -> `proxy.ts`; middleware-only session checks are bypassable per CVE-2025-29927.)
 4. **Vertical slices.** Build one feature end-to-end and verify before starting the next. Commit per slice.
@@ -44,8 +44,8 @@ Key choice: prospect inputs are modeled as MANY `prospect_source` rows of any `t
 Folder `ai/`:
 
 - `types.ts` — canonical, provider-neutral types: `LLMMessage` (role + content, where content is string or `ContentPart[]` with `text`/`image` parts), `LLMRequest` (`system?`, `messages`, `temperature?`, `maxTokens?`, `json?`), `LLMResult` (`text`, `usage`, `model`, `provider`, `raw`), `LLMProvider` (`name`, `capabilities {vision,json,streaming}`, `generate(req, {model, signal})`).
-- `adapters/*.ts` — one file per provider. Only job: translate canonical <-> wire format. `openrouter.ts` is the default; structure so `anthropic.ts` / `openai.ts` / `local.ts` can be added without touching anything else.
-- `routing.ts` — `Record<TaskName, Route>` read from env. `TaskName = 'outreach' | 'reply' | 'enrich' | 'vision' | 'explain'`. Each route: `{ provider, model, temperature?, fallback? }`. Switching providers = editing this table only.
+- `adapters/*.ts` — one file per provider. Only job: translate canonical <-> wire format. `gemini.ts` (Google AI Studio's OpenAI-compatible endpoint) is the default; structure so `anthropic.ts` / `openai.ts` / `local.ts` can be added without touching anything else.
+- `routing.ts` — `Record<TaskName, Route>` read from env. `TaskName = 'outreach' | 'reply' | 'enrich' | 'vision' | 'explain'`. Each route: `{ provider, model, temperature?, fallback? }`. Every task currently routes to Gemini `gemini-3.5-flash`. Switching providers (e.g. to Claude) = editing this table only — a one-line change per task.
 - `gateway.ts` — `run(task, req)`: resolve route, enforce capabilities (reject image input to a non-vision provider), apply retry, fall back to `route.fallback` on failure. This is the only place cross-cutting concerns live; adapters stay dumb.
 - `tasks.ts` — the ONLY AI surface the app imports: `generateOutreach`, `generateReply`, `enrichSource`, `extractFromScreenshot`, `explainInline`. Owns prompt construction; knows nothing about providers.
 
@@ -61,7 +61,7 @@ Folder `ai/`:
 - Server actions for mutations from client components; route handlers for anything else. Always re-validate the session inside them.
 - Inline AI explainers (offering / prompt "what is this?") use the `explain` task — short, plain-language, streamed if easy.
 - Errors: adapters throw a typed `LLMError(provider, status, body)`; surface user-friendly messages, never raw provider errors.
-- Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OPENROUTER_KEY`, `JINA_KEY` (optional — Reader works without). Document every new var in the README.
+- Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GEMINI_API_KEY`, `JINA_KEY` (optional — Reader works without). Document every new var in the README.
 - Keep `raw` provider responses out of app logic — escape hatch only.
 
 ## Build sequence
@@ -82,7 +82,7 @@ Folder `ai/`:
 
 ## What NOT to do
 
-- Don't call OpenRouter outside `ai/tasks.ts`.
+- Don't call a model provider (Gemini or any other) outside `ai/tasks.ts`.
 - Don't try to scrape LinkedIn — it's blocked; LinkedIn is always a screenshot read by the `vision` task.
 - Don't gold-plate auth or analytics — they're explicitly low-investment.
 - Don't model every provider parameter in `LLMRequest` — keep the universal set; adapters apply their own defaults.
