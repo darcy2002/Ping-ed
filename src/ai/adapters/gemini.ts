@@ -1,0 +1,113 @@
+import {
+  LLMError,
+  type ContentPart,
+  type GenerateOptions,
+  type LLMMessage,
+  type LLMProvider,
+  type LLMRequest,
+  type LLMResult,
+} from "../types";
+
+// Gemini exposes an OpenAI-compatible chat-completions endpoint, so the wire
+// shapes below are the standard OpenAI ones — nothing Gemini-specific leaks out.
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+
+type OpenAIContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+interface OpenAIMessage {
+  role: "system" | "user" | "assistant";
+  content: string | OpenAIContentPart[];
+}
+
+interface ChatResponse {
+  model?: string;
+  choices?: Array<{ message?: { content?: string | null } }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+}
+
+function toWireContent(
+  content: string | ContentPart[],
+): string | OpenAIContentPart[] {
+  if (typeof content === "string") {
+    return content;
+  }
+  return content.map((part): OpenAIContentPart =>
+    part.type === "text"
+      ? { type: "text", text: part.text }
+      : {
+          type: "image_url",
+          image_url: {
+            url: `data:${part.mediaType};base64,${part.dataBase64}`,
+          },
+        },
+  );
+}
+
+function toWireMessages(req: LLMRequest): OpenAIMessage[] {
+  const messages: OpenAIMessage[] = [];
+  if (req.system) {
+    messages.push({ role: "system", content: req.system });
+  }
+  for (const message of req.messages as LLMMessage[]) {
+    messages.push({
+      role: message.role,
+      content: toWireContent(message.content),
+    });
+  }
+  return messages;
+}
+
+export const gemini: LLMProvider = {
+  name: "gemini",
+  capabilities: { vision: true, json: true, streaming: false },
+
+  async generate(req: LLMRequest, opts: GenerateOptions): Promise<LLMResult> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not set");
+    }
+
+    const body = {
+      model: opts.model,
+      messages: toWireMessages(req),
+      ...(req.temperature !== undefined && { temperature: req.temperature }),
+      ...(req.maxTokens !== undefined && { max_tokens: req.maxTokens }),
+      ...(req.json && { response_format: { type: "json_object" } }),
+    };
+
+    const res = await fetch(GEMINI_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: opts.signal,
+    });
+
+    if (!res.ok) {
+      throw new LLMError("gemini", res.status, await res.text());
+    }
+
+    const data = (await res.json()) as ChatResponse;
+
+    return {
+      text: data.choices?.[0]?.message?.content ?? "",
+      usage: {
+        promptTokens: data.usage?.prompt_tokens ?? 0,
+        completionTokens: data.usage?.completion_tokens ?? 0,
+        totalTokens: data.usage?.total_tokens ?? 0,
+      },
+      model: data.model ?? opts.model,
+      provider: "gemini",
+      raw: data,
+    };
+  },
+};
