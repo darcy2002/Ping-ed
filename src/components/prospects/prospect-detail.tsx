@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { enrichProspectSource } from "@/lib/actions";
 import {
   addProspectSource,
   deleteProspectSource,
+  type ProspectSource,
   type ProspectSourceType,
   type ProspectWithSources,
 } from "@/lib/prospect-actions";
@@ -61,16 +62,33 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  // Render from local state so a newly added row shows pending/enriching
+  // immediately, rather than waiting for the (slow) server refresh to commit.
+  // The effect re-syncs whenever the server sends fresh data after a refresh.
+  const [sources, setSources] = useState<ProspectSource[]>(prospect.sources);
+  useEffect(() => {
+    setSources(prospect.sources);
+  }, [prospect.sources]);
+
   const isFreetext = type === "freetext";
   const isScreenshot = type === "linkedin_screenshot";
 
   async function runEnrich(id: string) {
     setEnrichingIds((prev) => new Set(prev).add(id));
+    let ok = true;
     try {
       await enrichProspectSource(id);
     } catch {
-      // The action marks the source as failed; the refreshed status reflects it.
+      // The action marks the source as failed server-side too.
+      ok = false;
     } finally {
+      // Reflect the outcome locally so the badge goes straight to
+      // enriched/failed instead of flashing "pending" before the refresh.
+      setSources((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, status: ok ? "enriched" : "failed" } : s,
+        ),
+      );
       setEnrichingIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
@@ -84,6 +102,8 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
     e.preventDefault();
     setError(null);
     setAdding(true);
+
+    const tempId = `temp-${Date.now()}`;
     try {
       let sourceValue: string;
       if (isScreenshot) {
@@ -97,15 +117,30 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
         sourceValue = value;
       }
 
+      // Show an optimistic "pending" row right away.
+      const optimistic: ProspectSource = {
+        id: tempId,
+        prospectId: prospect.id,
+        type,
+        value: sourceValue,
+        extractedContext: null,
+        status: "pending",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setSources((prev) => [optimistic, ...prev]);
+      setValue("");
+      setFile(null);
+
       const source = await addProspectSource(prospect.id, {
         type,
         value: sourceValue,
       });
-      setValue("");
-      setFile(null);
-      router.refresh();
+      // Swap the optimistic row for the real one, then enrich it in place.
+      setSources((prev) => prev.map((s) => (s.id === tempId ? source : s)));
       await runEnrich(source.id);
     } catch (err) {
+      setSources((prev) => prev.filter((s) => s.id !== tempId));
       setError(err instanceof Error ? err.message : "Could not add source.");
     } finally {
       setAdding(false);
@@ -221,16 +256,16 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
 
       <div className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">
-          Sources ({prospect.sources.length})
+          Sources ({sources.length})
         </h2>
-        {prospect.sources.length === 0 ? (
+        {sources.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
               No sources yet. Add a URL or some free text above.
             </CardContent>
           </Card>
         ) : (
-          prospect.sources.map((source) => {
+          sources.map((source) => {
             const enriching = enrichingIds.has(source.id);
             return (
               <Card key={source.id}>
@@ -270,7 +305,7 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
                     </div>
                   </div>
                   {source.extractedContext && (
-                    <p className="line-clamp-4 whitespace-pre-wrap rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                    <p className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs text-muted-foreground">
                       {source.extractedContext}
                     </p>
                   )}
