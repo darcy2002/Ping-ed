@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -10,7 +11,9 @@ export default function Home() {
         Hyper-personalized AI outreach. Define your offering, save a prospect,
         and generate a message that actually lands.
       </p>
-      <Button size="lg">Get started</Button>
+      <Button asChild size="lg">
+        <Link href="/sign-up">Get started</Link>
+      </Button>
     </main>
   );
 }
