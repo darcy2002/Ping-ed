@@ -45,8 +45,25 @@ export interface ExplainInput {
 const FORMAT_RULES =
   "Output only the message. No preamble, no subject line, no quotes. Write in first person as the sender. Don't explain choices.";
 
+// Anti-AI-tell rules, appended to the fixed envelope for message generation
+// (outreach + reply) only — never for enrich/vision/explain. Scoped to short
+// messages: no long-form rules about headers, bold, or lists.
+const HUMANIZE_RULES = `Write like a real person, not an AI. Avoid these tells:
+- No significance inflation or promotional language ("pivotal moment", "nestled", "breathtaking").
+- No AI vocabulary: testament, landscape, showcasing, delve, robust, leverage, elevate, foster, seamless, unlock, navigate.
+- Use plain verbs ("is", "has") instead of "serves as", "boasts", "features".
+- No negative parallelisms ("it's not just X, it's Y").
+- No forced rule-of-three lists.
+- No em-dash overuse; prefer commas or periods.
+- No signposting openers ("let's dive in", "here's what you need to know").
+- Cut filler ("in order to" -> "to", "due to the fact that" -> "because").
+- No excessive hedging ("could potentially possibly").
+- No generic conclusions ("the future looks bright").
+- No sycophancy and no exclamation-mark enthusiasm.
+After drafting, silently re-read the message against these rules and rewrite any line that slipped in. CRITICAL: keep the specific, personalized details about the prospect intact — do NOT sand the message into generic clean text. Human and specific beats clean and generic.`;
+
 function systemWithEnvelope(systemPrompt: string): string {
-  return `${systemPrompt}\n\n---\n${FORMAT_RULES}`;
+  return `${systemPrompt}\n\n---\n${FORMAT_RULES}\n\n${HUMANIZE_RULES}`;
 }
 
 function contextBlocks(
