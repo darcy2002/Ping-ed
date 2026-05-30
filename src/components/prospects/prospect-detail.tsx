@@ -30,6 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 const SOURCE_TYPES: { value: ProspectSourceType; label: string }[] = [
+  { value: "linkedin_screenshot", label: "LinkedIn screenshot" },
   { value: "github_url", label: "GitHub URL" },
   { value: "website_url", label: "Website URL" },
   { value: "company_url", label: "Company URL" },
@@ -37,20 +38,31 @@ const SOURCE_TYPES: { value: ProspectSourceType; label: string }[] = [
   { value: "freetext", label: "Free text" },
 ];
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Could not read the image file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 const TYPE_LABELS = Object.fromEntries(
   SOURCE_TYPES.map((t) => [t.value, t.label]),
 ) as Record<ProspectSourceType, string>;
 
 export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) {
   const router = useRouter();
-  const [type, setType] = useState<ProspectSourceType>("github_url");
+  const [type, setType] = useState<ProspectSourceType>("linkedin_screenshot");
   const [value, setValue] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const isFreetext = type === "freetext";
+  const isScreenshot = type === "linkedin_screenshot";
 
   async function runEnrich(id: string) {
     setEnrichingIds((prev) => new Set(prev).add(id));
@@ -73,8 +85,24 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
     setError(null);
     setAdding(true);
     try {
-      const source = await addProspectSource(prospect.id, { type, value });
+      let sourceValue: string;
+      if (isScreenshot) {
+        if (!file) {
+          throw new Error("Choose a screenshot to upload");
+        }
+        // Store the image as a base64 data URL; the vision enrichment path
+        // parses it straight out of the source value.
+        sourceValue = await fileToDataUrl(file);
+      } else {
+        sourceValue = value;
+      }
+
+      const source = await addProspectSource(prospect.id, {
+        type,
+        value: sourceValue,
+      });
       setValue("");
+      setFile(null);
       router.refresh();
       await runEnrich(source.id);
     } catch (err) {
@@ -144,9 +172,23 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
             </div>
             <div className="grid gap-2">
               <Label htmlFor="source-value">
-                {isFreetext ? "Text" : "URL"}
+                {isScreenshot ? "Screenshot" : isFreetext ? "Text" : "URL"}
               </Label>
-              {isFreetext ? (
+              {isScreenshot ? (
+                <>
+                  <Input
+                    id="source-value"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload a screenshot of the prospect&apos;s LinkedIn profile.
+                    It&apos;s read by vision and distilled into context.
+                  </p>
+                </>
+              ) : isFreetext ? (
                 <Textarea
                   id="source-value"
                   value={value}
@@ -201,7 +243,11 @@ export function ProspectDetail({ prospect }: { prospect: ProspectWithSources }) 
                         </span>
                         {statusBadge(source.status, enriching)}
                       </div>
-                      <p className="truncate text-sm">{source.value}</p>
+                      <p className="truncate text-sm">
+                        {source.type === "linkedin_screenshot"
+                          ? "Uploaded screenshot"
+                          : source.value}
+                      </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       {source.status === "failed" && !enriching && (
