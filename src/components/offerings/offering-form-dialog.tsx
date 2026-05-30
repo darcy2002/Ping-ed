@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   createOffering,
+  explainOffering,
+  scrapeOfferingContent,
   updateOffering,
   type Offering,
 } from "@/lib/offering-actions";
@@ -39,6 +41,37 @@ export function OfferingFormDialog({
   const [content, setContent] = useState(offering?.content ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [explaining, setExplaining] = useState(false);
+
+  async function onScrape() {
+    setError(null);
+    setScraping(true);
+    try {
+      const markdown = await scrapeOfferingContent(sourceUrl);
+      setContent(markdown);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not scrape the URL.");
+    } finally {
+      setScraping(false);
+    }
+  }
+
+  async function onExplain() {
+    if (explanation) {
+      setExplanation(null);
+      return;
+    }
+    setExplaining(true);
+    try {
+      setExplanation(await explainOffering());
+    } catch {
+      setExplanation("Couldn't load an explanation right now.");
+    } finally {
+      setExplaining(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,6 +106,23 @@ export function OfferingFormDialog({
             Describe what you&apos;re offering. This context feeds every
             generated message.
           </DialogDescription>
+          <button
+            type="button"
+            onClick={onExplain}
+            disabled={explaining}
+            className="w-fit text-left text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-60"
+          >
+            {explaining
+              ? "Thinking..."
+              : explanation
+                ? "Hide explanation"
+                : "What is an offering?"}
+          </button>
+          {explanation && (
+            <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+              {explanation}
+            </p>
+          )}
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="grid gap-2">
@@ -87,13 +137,27 @@ export function OfferingFormDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="sourceUrl">Source URL (optional)</Label>
-            <Input
-              id="sourceUrl"
-              type="url"
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="https://..."
-            />
+            <div className="flex gap-2">
+              <Input
+                id="sourceUrl"
+                type="url"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                placeholder="https://..."
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onScrape}
+                disabled={scraping || sourceUrl.trim() === ""}
+              >
+                {scraping ? "Scraping..." : "Scrape"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pull the page into the content field below, then edit it.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="content">Content</Label>

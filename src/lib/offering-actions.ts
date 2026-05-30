@@ -1,8 +1,10 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
+import { explainInline } from "@/ai/tasks";
 import { getSessionUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { fetchMarkdown } from "@/lib/jina";
 import { offering } from "@/lib/schema";
 
 export type Offering = typeof offering.$inferSelect;
@@ -105,4 +107,25 @@ export async function deleteOffering(id: string): Promise<void> {
   if (!rows[0]) {
     throw new Error("Offering not found");
   }
+}
+
+export async function scrapeOfferingContent(url: string): Promise<string> {
+  await getSessionUserId();
+
+  const target = url.trim();
+  if (!target) {
+    throw new Error("Enter a source URL to scrape");
+  }
+
+  return fetchMarkdown(target);
+}
+
+export async function explainOffering(): Promise<string> {
+  await getSessionUserId();
+
+  const result = await explainInline({
+    subject:
+      "what an 'offering' is in this AI outreach tool, and what to put in its content field",
+  });
+  return result.text;
 }
