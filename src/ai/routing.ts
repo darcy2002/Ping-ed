@@ -20,10 +20,11 @@ function numberEnv(key: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-// Optional per-task fallback, only present if a fallback model is configured.
-function envFallback(task: string): Route | undefined {
+// Optional per-task fallback. Env-configured fallback takes precedence; falls
+// back to the route's built-in default fallback if present.
+function envFallback(task: string, fallbackDefault?: Route): Route | undefined {
   const model = process.env[`AI_${task}_FALLBACK_MODEL`];
-  if (!model) return undefined;
+  if (!model) return fallbackDefault;
   const provider = process.env[`AI_${task}_FALLBACK_PROVIDER`] ?? DEFAULT_PROVIDER;
   const temperature = numberEnv(`AI_${task}_FALLBACK_TEMPERATURE`);
   return {
@@ -33,12 +34,19 @@ function envFallback(task: string): Route | undefined {
   };
 }
 
-function envRoute(task: TaskName, defaultTemperature: number): Route {
+interface RouteDefaults {
+  provider: string;
+  model: string;
+  temperature: number;
+  fallback?: Route;
+}
+
+function envRoute(task: TaskName, defaults: RouteDefaults): Route {
   const key = task.toUpperCase();
-  const provider = process.env[`AI_${key}_PROVIDER`] ?? DEFAULT_PROVIDER;
-  const model = process.env[`AI_${key}_MODEL`] ?? DEFAULT_MODEL;
-  const temperature = numberEnv(`AI_${key}_TEMPERATURE`) ?? defaultTemperature;
-  const fallback = envFallback(key);
+  const provider = process.env[`AI_${key}_PROVIDER`] ?? defaults.provider;
+  const model = process.env[`AI_${key}_MODEL`] ?? defaults.model;
+  const temperature = numberEnv(`AI_${key}_TEMPERATURE`) ?? defaults.temperature;
+  const fallback = envFallback(key, defaults.fallback);
   return {
     provider,
     model,
@@ -47,13 +55,38 @@ function envRoute(task: TaskName, defaultTemperature: number): Route {
   };
 }
 
-// Creative tasks run warm; distillation/explanation run cold for fidelity.
+// Graded generation (outreach + reply) routes to Claude via OpenRouter, with a
+// Gemini fallback if OpenRouter fails. Enrichment/vision/explain stay on Gemini.
+const GEMINI_FALLBACK: Route = { provider: "gemini", model: DEFAULT_MODEL };
+
 export const routing: Record<TaskName, Route> = {
-  outreach: envRoute("outreach", 0.8),
-  reply: envRoute("reply", 0.8),
-  enrich: envRoute("enrich", 0.2),
-  vision: envRoute("vision", 0.2),
-  explain: envRoute("explain", 0.3),
+  outreach: envRoute("outreach", {
+    provider: "openrouter",
+    model: "anthropic/claude-sonnet-4.6",
+    temperature: 0.8,
+    fallback: GEMINI_FALLBACK,
+  }),
+  reply: envRoute("reply", {
+    provider: "openrouter",
+    model: "anthropic/claude-sonnet-4.6",
+    temperature: 0.7,
+    fallback: GEMINI_FALLBACK,
+  }),
+  enrich: envRoute("enrich", {
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    temperature: 0.2,
+  }),
+  vision: envRoute("vision", {
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    temperature: 0.2,
+  }),
+  explain: envRoute("explain", {
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    temperature: 0.3,
+  }),
 };
 
 export function resolveRoute(task: TaskName): Route {
