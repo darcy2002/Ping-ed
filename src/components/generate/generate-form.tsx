@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import {
   generateOutreachMessage,
+  generateReplyMessage,
   type Message,
 } from "@/lib/generation-actions";
 import {
@@ -55,16 +56,15 @@ export function GenerateForm({
   const [prospectId, setProspectId] = useState(prospects[0]?.id ?? "");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<Message | null>(null);
-  const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState(false);
   const [angle, setAngle] = useState("");
-  // The conversation the latest outreach belongs to, plus the replies pasted
-  // into it. Together with `result` they form the ordered thread.
+  // The full ordered conversation thread: outreach + replies + follow-ups.
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [replies, setReplies] = useState<Message[]>([]);
+  const [thread, setThread] = useState<Message[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [addingReply, setAddingReply] = useState(false);
+  const [followingUp, setFollowingUp] = useState(false);
 
   const ready = offeringId && promptId && prospectId;
   const missing: string[] = [];
@@ -72,12 +72,19 @@ export function GenerateForm({
   if (prompts.length === 0) missing.push("a prompt");
   if (prospects.length === 0) missing.push("a prospect");
 
-  // Used for the first generation and for regenerate-with-an-angle. The
-  // angle steers a fresh message while reusing the same offering/prompt/prospect.
+  const latestOutreach =
+    [...thread].reverse().find((m) => m.role === "outreach") ?? null;
+  const canFollowUp = thread[thread.length - 1]?.role === "prospect_reply";
+
+  function updateMessage(updated: Message) {
+    setThread((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+  }
+
+  // Used for the first generation and for regenerate-with-an-angle. The angle
+  // steers a fresh message while reusing the same offering/prompt/prospect.
   async function runGenerate(steer?: string) {
     if (!ready || generating) return;
     setError(null);
-    setCopied(false);
     setGenerating(true);
     try {
       const res = await generateOutreachMessage({
@@ -86,10 +93,9 @@ export function GenerateForm({
         prospectId,
         ...(steer && { angle: steer }),
       });
-      setResult(res.message);
       // A fresh outreach starts a new conversation, so reset the thread.
       setConversationId(res.conversationId);
-      setReplies([]);
+      setThread([res.message]);
       setReplyText("");
     } catch (err) {
       setError(
@@ -101,7 +107,7 @@ export function GenerateForm({
   }
 
   function onGenerate() {
-    setResult(null);
+    setThread([]);
     setAngle("");
     void runGenerate();
   }
@@ -112,44 +118,45 @@ export function GenerateForm({
     void runGenerate(steer);
   }
 
-  async function onCopy() {
-    if (!result) return;
-    await navigator.clipboard.writeText(result.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  async function onCopy(m: Message) {
+    await navigator.clipboard.writeText(m.content);
+    setCopiedId(m.id);
+    setTimeout(() => setCopiedId(null), 1500);
   }
 
   // rating: 1 = thumbs up, -1 = thumbs down, null = unrated. Clicking the
   // active rating clears it.
-  async function onRate(value: number) {
-    if (!result || pending) return;
-    const next = result.rating === value ? null : value;
+  async function onRate(m: Message, value: number) {
+    if (pending) return;
+    const next = m.rating === value ? null : value;
     setPending(true);
     try {
-      setResult(await rateMessage(result.id, next));
+      updateMessage(await rateMessage(m.id, next));
     } finally {
       setPending(false);
     }
   }
 
-  async function onToggleFavourite() {
-    if (!result || pending) return;
+  async function onToggleFavourite(m: Message) {
+    if (pending) return;
     setPending(true);
     try {
-      setResult(await setMessageFavourite(result.id, !result.isFavourite));
+      updateMessage(await setMessageFavourite(m.id, !m.isFavourite));
     } finally {
       setPending(false);
     }
   }
 
-  async function onDelete() {
-    if (!result || pending) return;
+  async function onDelete(m: Message) {
+    if (pending) return;
     setPending(true);
     try {
-      await deleteMessage(result.id);
-      setResult(null);
-      setConversationId(null);
-      setReplies([]);
+      await deleteMessage(m.id);
+      setThread((prev) => {
+        const next = prev.filter((x) => x.id !== m.id);
+        if (next.length === 0) setConversationId(null);
+        return next;
+      });
     } finally {
       setPending(false);
     }
@@ -161,7 +168,7 @@ export function GenerateForm({
     setAddingReply(true);
     try {
       const reply = await addProspectReply(conversationId, text);
-      setReplies((prev) => [...prev, reply]);
+      setThread((prev) => [...prev, reply]);
       setReplyText("");
     } catch (err) {
       setError(
@@ -169,6 +176,23 @@ export function GenerateForm({
       );
     } finally {
       setAddingReply(false);
+    }
+  }
+
+  // The follow-up is the same generation call replayed over the whole thread.
+  async function onFollowUp() {
+    if (!conversationId || followingUp) return;
+    setError(null);
+    setFollowingUp(true);
+    try {
+      const res = await generateReplyMessage(conversationId);
+      setThread((prev) => [...prev, res.message]);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not generate a follow-up.",
+      );
+    } finally {
+      setFollowingUp(false);
     }
   }
 
@@ -266,71 +290,79 @@ export function GenerateForm({
         </Card>
       )}
 
-      {result && (
+      {thread.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Conversation</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
-              <div className="rounded-md bg-muted/50 p-3">
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
-                  You · Outreach
-                </p>
-                <p className="whitespace-pre-wrap text-sm">{result.content}</p>
-              </div>
-              {replies.map((reply) => (
-                <div key={reply.id} className="rounded-md border p-3">
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    Prospect reply
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm">{reply.content}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={result.rating === 1 ? "default" : "outline"}
-                size="icon"
-                onClick={() => onRate(1)}
-                disabled={pending}
-                aria-label="Thumbs up"
-                aria-pressed={result.rating === 1}
-              >
-                <ThumbsUp className="size-4" />
-              </Button>
-              <Button
-                variant={result.rating === -1 ? "default" : "outline"}
-                size="icon"
-                onClick={() => onRate(-1)}
-                disabled={pending}
-                aria-label="Thumbs down"
-                aria-pressed={result.rating === -1}
-              >
-                <ThumbsDown className="size-4" />
-              </Button>
-              <Button
-                variant={result.isFavourite ? "default" : "outline"}
-                size="sm"
-                onClick={onToggleFavourite}
-                disabled={pending}
-                aria-pressed={result.isFavourite}
-              >
-                {result.isFavourite ? "★ Favourited" : "☆ Favourite"}
-              </Button>
-              <div className="ml-auto flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={onCopy}>
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onDelete}
-                  disabled={pending}
-                >
-                  Delete
-                </Button>
-              </div>
+              {thread.map((m) =>
+                m.role === "outreach" ? (
+                  <div key={m.id} className="rounded-md bg-muted/50 p-3">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      You · Outreach
+                      {m.angle ? ` · angle: ${m.angle}` : ""}
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm">{m.content}</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <Button
+                        variant={m.rating === 1 ? "default" : "outline"}
+                        size="icon"
+                        onClick={() => onRate(m, 1)}
+                        disabled={pending}
+                        aria-label="Thumbs up"
+                        aria-pressed={m.rating === 1}
+                      >
+                        <ThumbsUp className="size-4" />
+                      </Button>
+                      <Button
+                        variant={m.rating === -1 ? "default" : "outline"}
+                        size="icon"
+                        onClick={() => onRate(m, -1)}
+                        disabled={pending}
+                        aria-label="Thumbs down"
+                        aria-pressed={m.rating === -1}
+                      >
+                        <ThumbsDown className="size-4" />
+                      </Button>
+                      <Button
+                        variant={m.isFavourite ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => onToggleFavourite(m)}
+                        disabled={pending}
+                        aria-pressed={m.isFavourite}
+                      >
+                        {m.isFavourite ? "★ Favourited" : "☆ Favourite"}
+                      </Button>
+                      <div className="ml-auto flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onCopy(m)}
+                        >
+                          {copiedId === m.id ? "Copied" : "Copy"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onDelete(m)}
+                          disabled={pending}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={m.id} className="rounded-md border p-3">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      Prospect reply
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm">{m.content}</p>
+                  </div>
+                ),
+              )}
             </div>
 
             <div className="flex flex-col gap-2 border-t pt-4">
@@ -343,7 +375,12 @@ export function GenerateForm({
                 rows={3}
                 className="max-h-40 overflow-y-auto"
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-end gap-2">
+                {canFollowUp && (
+                  <Button onClick={onFollowUp} disabled={followingUp}>
+                    {followingUp ? "Generating…" : "Generate follow-up"}
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={onAddReply}
@@ -372,9 +409,9 @@ export function GenerateForm({
                   {generating ? "Regenerating…" : "Regenerate"}
                 </Button>
               </div>
-              {result.angle && (
+              {latestOutreach?.angle && (
                 <p className="text-xs text-muted-foreground">
-                  Current angle: {result.angle}
+                  Current angle: {latestOutreach.angle}
                 </p>
               )}
             </div>

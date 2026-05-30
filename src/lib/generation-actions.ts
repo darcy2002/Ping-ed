@@ -1,7 +1,7 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
-import { generateOutreach } from "@/ai/tasks";
+import { and, asc, desc, eq } from "drizzle-orm";
+import { generateOutreach, generateReply } from "@/ai/tasks";
 import { getSessionUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -124,4 +124,79 @@ export async function generateOutreachMessage(
   });
 
   return saved;
+}
+
+// A follow-up is the SAME generation call with history: the entire prior thread
+// (in order) is replayed as the messages array, plus the same offering/prospect
+// context. The output is the next role=outreach message in the conversation.
+export async function generateReplyMessage(
+  conversationId: string,
+): Promise<GenerateOutreachResult> {
+  const userId = await getSessionUserId();
+
+  const [conv] = await db
+    .select()
+    .from(conversation)
+    .where(
+      and(
+        eq(conversation.id, conversationId),
+        eq(conversation.userId, userId),
+      ),
+    );
+  if (!conv) throw new Error("Conversation not found");
+
+  const [offeringRow] = await db
+    .select()
+    .from(offering)
+    .where(eq(offering.id, conv.offeringId));
+  if (!offeringRow) throw new Error("Offering not found");
+
+  const [promptRow] = await db
+    .select()
+    .from(prompt)
+    .where(eq(prompt.id, conv.promptId));
+  if (!promptRow) throw new Error("Prompt not found");
+
+  const [prospectRow] = await db
+    .select()
+    .from(prospect)
+    .where(eq(prospect.id, conv.prospectId));
+  if (!prospectRow) throw new Error("Prospect not found");
+
+  const sources = await db
+    .select({
+      type: prospectSource.type,
+      extractedContext: prospectSource.extractedContext,
+      status: prospectSource.status,
+    })
+    .from(prospectSource)
+    .where(eq(prospectSource.prospectId, prospectRow.id))
+    .orderBy(desc(prospectSource.createdAt));
+
+  const prospectContext = buildProspectContext(prospectRow.name, sources);
+
+  const thread = await db
+    .select({ role: message.role, content: message.content })
+    .from(message)
+    .where(eq(message.conversationId, conversationId))
+    .orderBy(asc(message.createdAt));
+
+  const result = await generateReply({
+    systemPrompt: promptRow.systemPrompt,
+    offering: offeringRow.content || offeringRow.name,
+    prospect: prospectContext,
+    thread,
+  });
+
+  const [msg] = await db
+    .insert(message)
+    .values({
+      conversationId,
+      role: "outreach",
+      content: result.text,
+      model: result.model,
+    })
+    .returning();
+
+  return { conversationId, message: msg };
 }
