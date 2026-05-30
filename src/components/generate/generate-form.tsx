@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { generateOutreachMessage } from "@/lib/generation-actions";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  generateOutreachMessage,
+  type Message,
+} from "@/lib/generation-actions";
+import {
+  deleteMessage,
+  rateMessage,
+  setMessageFavourite,
+} from "@/lib/message-actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,8 +52,9 @@ export function GenerateForm({
   const [prospectId, setProspectId] = useState(prospects[0]?.id ?? "");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<Message | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pending, setPending] = useState(false);
 
   const ready = offeringId && promptId && prospectId;
   const missing: string[] = [];
@@ -64,7 +74,7 @@ export function GenerateForm({
         promptId,
         prospectId,
       });
-      setResult(res.message.content);
+      setResult(res.message);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not generate a message.",
@@ -76,9 +86,43 @@ export function GenerateForm({
 
   async function onCopy() {
     if (!result) return;
-    await navigator.clipboard.writeText(result);
+    await navigator.clipboard.writeText(result.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  // rating: 1 = thumbs up, -1 = thumbs down, null = unrated. Clicking the
+  // active rating clears it.
+  async function onRate(value: number) {
+    if (!result || pending) return;
+    const next = result.rating === value ? null : value;
+    setPending(true);
+    try {
+      setResult(await rateMessage(result.id, next));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function onToggleFavourite() {
+    if (!result || pending) return;
+    setPending(true);
+    try {
+      setResult(await setMessageFavourite(result.id, !result.isFavourite));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function onDelete() {
+    if (!result || pending) return;
+    setPending(true);
+    try {
+      await deleteMessage(result.id);
+      setResult(null);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -177,14 +221,55 @@ export function GenerateForm({
 
       {result && (
         <Card>
-          <CardHeader className="flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle className="text-base">Outreach message</CardTitle>
-            <Button variant="outline" size="sm" onClick={onCopy}>
-              {copied ? "Copied" : "Copy"}
-            </Button>
           </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap text-sm">{result}</p>
+          <CardContent className="flex flex-col gap-4">
+            <p className="whitespace-pre-wrap text-sm">{result.content}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={result.rating === 1 ? "default" : "outline"}
+                size="icon"
+                onClick={() => onRate(1)}
+                disabled={pending}
+                aria-label="Thumbs up"
+                aria-pressed={result.rating === 1}
+              >
+                <ThumbsUp className="size-4" />
+              </Button>
+              <Button
+                variant={result.rating === -1 ? "default" : "outline"}
+                size="icon"
+                onClick={() => onRate(-1)}
+                disabled={pending}
+                aria-label="Thumbs down"
+                aria-pressed={result.rating === -1}
+              >
+                <ThumbsDown className="size-4" />
+              </Button>
+              <Button
+                variant={result.isFavourite ? "default" : "outline"}
+                size="sm"
+                onClick={onToggleFavourite}
+                disabled={pending}
+                aria-pressed={result.isFavourite}
+              >
+                {result.isFavourite ? "★ Favourited" : "☆ Favourite"}
+              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={onCopy}>
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onDelete}
+                  disabled={pending}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
