@@ -1,9 +1,10 @@
 import { AuthForm } from "@/components/auth-form";
+import { AuthShell } from "@/components/auth-shell";
 
 export default function SignInPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
+    <AuthShell>
       <AuthForm mode="sign-in" />
-    </main>
+    </AuthShell>
   );
 }
