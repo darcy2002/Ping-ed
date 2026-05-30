@@ -12,6 +12,7 @@ import {
   rateMessage,
   setMessageFavourite,
 } from "@/lib/message-actions";
+import { addProspectReply } from "@/lib/conversation-actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -57,6 +59,12 @@ export function GenerateForm({
   const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState(false);
   const [angle, setAngle] = useState("");
+  // The conversation the latest outreach belongs to, plus the replies pasted
+  // into it. Together with `result` they form the ordered thread.
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [replies, setReplies] = useState<Message[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [addingReply, setAddingReply] = useState(false);
 
   const ready = offeringId && promptId && prospectId;
   const missing: string[] = [];
@@ -79,6 +87,10 @@ export function GenerateForm({
         ...(steer && { angle: steer }),
       });
       setResult(res.message);
+      // A fresh outreach starts a new conversation, so reset the thread.
+      setConversationId(res.conversationId);
+      setReplies([]);
+      setReplyText("");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not generate a message.",
@@ -136,8 +148,27 @@ export function GenerateForm({
     try {
       await deleteMessage(result.id);
       setResult(null);
+      setConversationId(null);
+      setReplies([]);
     } finally {
       setPending(false);
+    }
+  }
+
+  async function onAddReply() {
+    const text = replyText.trim();
+    if (!conversationId || !text || addingReply) return;
+    setAddingReply(true);
+    try {
+      const reply = await addProspectReply(conversationId, text);
+      setReplies((prev) => [...prev, reply]);
+      setReplyText("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not save the reply.",
+      );
+    } finally {
+      setAddingReply(false);
     }
   }
 
@@ -238,10 +269,25 @@ export function GenerateForm({
       {result && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Outreach message</CardTitle>
+            <CardTitle className="text-base">Conversation</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <p className="whitespace-pre-wrap text-sm">{result.content}</p>
+            <div className="flex flex-col gap-3">
+              <div className="rounded-md bg-muted/50 p-3">
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  You · Outreach
+                </p>
+                <p className="whitespace-pre-wrap text-sm">{result.content}</p>
+              </div>
+              {replies.map((reply) => (
+                <div key={reply.id} className="rounded-md border p-3">
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                    Prospect reply
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm">{reply.content}</p>
+                </div>
+              ))}
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant={result.rating === 1 ? "default" : "outline"}
@@ -283,6 +329,27 @@ export function GenerateForm({
                   disabled={pending}
                 >
                   Delete
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t pt-4">
+              <Label htmlFor="reply">Paste a prospect reply</Label>
+              <Textarea
+                id="reply"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Paste what the prospect wrote back…"
+                rows={3}
+                className="max-h-40 overflow-y-auto"
+              />
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary"
+                  onClick={onAddReply}
+                  disabled={!replyText.trim() || addingReply}
+                >
+                  {addingReply ? "Adding…" : "Add reply"}
                 </Button>
               </div>
             </div>
