@@ -141,20 +141,11 @@ export default function Home() {
       {/* hero */}
       <section className="mx-auto w-full max-w-6xl px-6">
         <div className="pt-15 pb-8 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border bg-card py-1 pr-3 pl-1.5 text-sm text-muted-foreground shadow-xs">
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
-              NEW
-            </span>
-            Reply handling is live →
-          </span>
           <h1 className="mx-auto mt-5 max-w-[15ch] text-4xl leading-[1.02] font-semibold tracking-tighter sm:text-5xl md:text-6xl">
-            Outreach that actually did its homework.
+          Outreach that feels personal.
           </h1>
           <p className="mx-auto mt-5 max-w-[56ch] text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Pinged turns any prospect source — a LinkedIn screenshot, a GitHub,
-            a company URL — into clean, reusable context, then writes a message
-            in your voice that references what&apos;s actually true. Not a merge
-            tag.
+          Pinged gathers prospect insights from across the web and turns them into tailored messages in your voice. Save a prospect, define your offer, and send messages that land.
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-2.5">
             <Button asChild size="lg">
@@ -164,31 +155,17 @@ export default function Home() {
               <Link href="/sign-in">See it generate</Link>
             </Button>
           </div>
-          <div className="mt-3.5 text-sm text-muted-foreground">
+          {/* <div className="mt-3.5 text-sm text-muted-foreground">
             No card required · 1,000 free credits a month
-          </div>
+          </div> */}
         </div>
 
         <LandingDemo />
       </section>
 
-      {/* trust */}
+      
       <section className="mx-auto w-full max-w-6xl px-6 pt-9 pb-2 text-center">
-        <div className="text-sm text-muted-foreground">
-          Trusted by founders &amp; GTM teams who refuse to spray-and-pray
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-9 opacity-55">
-          {["Lumen", "Cadence", "Northwind", "Forge", "Aemon", "Reader"].map(
-            (n) => (
-              <span
-                key={n}
-                className="text-lg font-semibold tracking-tight text-muted-foreground"
-              >
-                {n}
-              </span>
-            ),
-          )}
-        </div>
+        
       </section>
 
       {/* Feature 01 */}
@@ -258,7 +235,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-2.5 p-4">
                 <div className="self-stretch rounded-[14px] rounded-br-[4px] bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground">
-                  Hi Diego — your post on the limits of spray-and-pray outbound
+                  Hi Diego, your post on the limits of spray-and-pray outbound
                   stuck with me; it&apos;s exactly the wall we hit before
                   building Pinged. We turn one screenshot into real, reusable
                   context, so this isn&apos;t a merge tag. Worth 15 minutes
@@ -297,7 +274,7 @@ export default function Home() {
             <div className="order-1 md:order-2">
               <Eyebrow label="Voice" accent="Your prompt" num="02 / 04" />
               <h2 className="mt-3.5 max-w-[18ch] text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
-                Writes in your voice — not a merge tag.
+                Writes in your voice, not a merge tag.
               </h2>
               <p className="mt-3 max-w-[56ch] leading-relaxed text-muted-foreground">
                 Pick an offering, a prompt, and a prospect. Pinged wraps your
