@@ -23,7 +23,9 @@ import {
   type ProspectSourceType,
   type ProspectWithSources,
 } from "@/lib/prospect-actions";
+import type { ConversationSummary } from "@/lib/conversation-actions";
 import { Monogram } from "@/components/brand";
+import { ProspectConversations } from "@/components/prospects/prospect-conversations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,8 +79,10 @@ const SOURCE_ICONS: Record<ProspectSourceType, LucideIcon> = {
 
 export function ProspectDetail({
   prospect,
+  conversations,
 }: {
   prospect: ProspectWithSources;
+  conversations: ConversationSummary[];
 }) {
   const router = useRouter();
   const [type, setType] = useState<ProspectSourceType>("linkedin_screenshot");
@@ -379,6 +383,8 @@ export function ProspectDetail({
           })
         )}
       </div>
+
+      <ProspectConversations conversations={conversations} />
     </div>
   );
 }
