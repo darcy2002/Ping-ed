@@ -9,7 +9,7 @@
 ![Tailwind](https://img.shields.io/badge/Tailwind-06B6D4?logo=tailwindcss&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?logo=vercel&logoColor=white)
 
-**[Live app](https://ping-ed.vercel.app/)** · **[Video walkthrough](https://REPLACE-WITH-YOUR-VIDEO-LINK)**
+**[Live app](https://ping-ed.vercel.app/)** · **[Video walkthrough](https://www.loom.com/share/ba04d0e2919744c2a42245e780521c67)**
 
 Drop in a prospect, a URL or a LinkedIn screenshot, and Pinged writes outreach that references what is actually true about them, in your voice. They reply, you paste it back, and it continues the thread.
 
