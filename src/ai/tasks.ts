@@ -172,12 +172,32 @@ export async function generateReply(input: ReplyInput): Promise<LLMResult> {
   return { ...result, text: stripDashes(result.text) };
 }
 
-const ENRICH_SYSTEM =
-  "You distill raw source material into tight, high-signal facts for writing a personalized outreach message. Extract concrete, specific details (role, focus, projects, achievements, interests, recent activity). Drop boilerplate, navigation, and filler. Output a concise bulleted list of facts only — no preamble.";
+const ENRICH_BASE =
+  "You distill raw source material into tight, high-signal facts for writing a personalized outreach message. Drop boilerplate, navigation, and filler. Output a concise bulleted list of facts only, no preamble. Never invent anything; use only what is present in the source.";
+
+// Per-type focus so each source pulls out the facts that matter for it, instead
+// of a generic distill. The type comes from prospect_source.type.
+const ENRICH_FOCUS: Record<string, string> = {
+  github_url:
+    "This is a GitHub profile or repo. Focus on: notable repositories and what they do, primary languages and tech, recurring project themes (what they care about), recent activity, and any signal of technical depth or interests.",
+  company_url:
+    "This is a company website. Focus on: what the company does and its product, who they sell to (market and segment), the problem they solve, positioning or differentiators, recent news or launches, and rough size or stage if visible.",
+  website_url:
+    "This is a personal site or portfolio. Focus on: who they are and their role, what they work on, focus areas and recent projects, and any distinctive voice, interests, or accomplishments.",
+  other_url:
+    "Pull the most relevant, specific facts about the prospect from this page; keep only what would help personalize outreach to them.",
+  freetext:
+    "These are free-text notes the user wrote about the prospect. Tighten them into clean, specific facts; keep every concrete detail and drop hedging and filler.",
+};
+
+function enrichSystem(type: string): string {
+  const focus = ENRICH_FOCUS[type];
+  return focus ? `${ENRICH_BASE}\n\n${focus}` : ENRICH_BASE;
+}
 
 export function enrichSource(input: EnrichInput): Promise<LLMResult> {
   return run("enrich", {
-    system: ENRICH_SYSTEM,
+    system: enrichSystem(input.type),
     messages: [
       {
         role: "user",
