@@ -2,6 +2,7 @@
 
 import { and, asc, desc, eq } from "drizzle-orm";
 import { generateOutreach, generateReply } from "@/ai/tasks";
+import { LLMError } from "@/ai/types";
 import { getSessionUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -23,9 +24,21 @@ export interface GenerateOutreachInput {
   angle?: string;
 }
 
-export interface GenerateOutreachResult {
-  conversationId: string;
-  message: Message;
+// Returned (not thrown) so the real message survives Next's production error
+// masking and can be shown in the UI.
+export type GenerateOutreachResult =
+  | { ok: true; conversationId: string; message: Message }
+  | { ok: false; error: string };
+
+function errorMessage(err: unknown): string {
+  if (err instanceof LLMError) {
+    const snippet =
+      typeof err.body === "string" ? err.body.slice(0, 300).trim() : "";
+    return `AI provider error (${err.provider}, status ${err.status})${
+      snippet ? `: ${snippet}` : ""
+    }`;
+  }
+  return err instanceof Error ? err.message : "Generation failed.";
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -58,72 +71,80 @@ function buildProspectContext(
 export async function generateOutreachMessage(
   input: GenerateOutreachInput,
 ): Promise<GenerateOutreachResult> {
-  const userId = await getSessionUserId();
+  try {
+    const userId = await getSessionUserId();
 
-  const [offeringRow] = await db
-    .select()
-    .from(offering)
-    .where(and(eq(offering.id, input.offeringId), eq(offering.userId, userId)));
-  if (!offeringRow) throw new Error("Offering not found");
+    const [offeringRow] = await db
+      .select()
+      .from(offering)
+      .where(
+        and(eq(offering.id, input.offeringId), eq(offering.userId, userId)),
+      );
+    if (!offeringRow) throw new Error("Offering not found");
 
-  const [promptRow] = await db
-    .select()
-    .from(prompt)
-    .where(and(eq(prompt.id, input.promptId), eq(prompt.userId, userId)));
-  if (!promptRow) throw new Error("Prompt not found");
+    const [promptRow] = await db
+      .select()
+      .from(prompt)
+      .where(and(eq(prompt.id, input.promptId), eq(prompt.userId, userId)));
+    if (!promptRow) throw new Error("Prompt not found");
 
-  const [prospectRow] = await db
-    .select()
-    .from(prospect)
-    .where(and(eq(prospect.id, input.prospectId), eq(prospect.userId, userId)));
-  if (!prospectRow) throw new Error("Prospect not found");
+    const [prospectRow] = await db
+      .select()
+      .from(prospect)
+      .where(
+        and(eq(prospect.id, input.prospectId), eq(prospect.userId, userId)),
+      );
+    if (!prospectRow) throw new Error("Prospect not found");
 
-  const sources = await db
-    .select({
-      type: prospectSource.type,
-      extractedContext: prospectSource.extractedContext,
-      status: prospectSource.status,
-    })
-    .from(prospectSource)
-    .where(eq(prospectSource.prospectId, prospectRow.id))
-    .orderBy(desc(prospectSource.createdAt));
-
-  const prospectContext = buildProspectContext(prospectRow.name, sources);
-  const angle = input.angle?.trim() || undefined;
-
-  const result = await generateOutreach({
-    systemPrompt: promptRow.systemPrompt,
-    offering: offeringRow.content || offeringRow.name,
-    prospect: prospectContext,
-    angle,
-  });
-
-  const saved = await db.transaction(async (tx) => {
-    const [conv] = await tx
-      .insert(conversation)
-      .values({
-        userId,
-        prospectId: prospectRow.id,
-        offeringId: offeringRow.id,
-        promptId: promptRow.id,
+    const sources = await db
+      .select({
+        type: prospectSource.type,
+        extractedContext: prospectSource.extractedContext,
+        status: prospectSource.status,
       })
-      .returning();
+      .from(prospectSource)
+      .where(eq(prospectSource.prospectId, prospectRow.id))
+      .orderBy(desc(prospectSource.createdAt));
 
-    const [msg] = await tx
-      .insert(message)
-      .values({
-        conversationId: conv.id,
-        role: "outreach",
-        content: result.text,
-        model: result.model,
-        ...(angle && { angle }),
-      })
-      .returning();
+    const prospectContext = buildProspectContext(prospectRow.name, sources);
+    const angle = input.angle?.trim() || undefined;
 
-    return { conversationId: conv.id, message: msg };
-  });
+    const result = await generateOutreach({
+      systemPrompt: promptRow.systemPrompt,
+      offering: offeringRow.content || offeringRow.name,
+      prospect: prospectContext,
+      angle,
+    });
 
-  return saved;
+    const saved = await db.transaction(async (tx) => {
+      const [conv] = await tx
+        .insert(conversation)
+        .values({
+          userId,
+          prospectId: prospectRow.id,
+          offeringId: offeringRow.id,
+          promptId: promptRow.id,
+        })
+        .returning();
+
+      const [msg] = await tx
+        .insert(message)
+        .values({
+          conversationId: conv.id,
+          role: "outreach",
+          content: result.text,
+          model: result.model,
+          ...(angle && { angle }),
+        })
+        .returning();
+
+      return { conversationId: conv.id, message: msg };
+    });
+
+    return { ok: true, ...saved };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }
 
 // A follow-up is the SAME generation call with history: the entire prior thread
@@ -132,71 +153,75 @@ export async function generateOutreachMessage(
 export async function generateReplyMessage(
   conversationId: string,
 ): Promise<GenerateOutreachResult> {
-  const userId = await getSessionUserId();
+  try {
+    const userId = await getSessionUserId();
 
-  const [conv] = await db
-    .select()
-    .from(conversation)
-    .where(
-      and(
-        eq(conversation.id, conversationId),
-        eq(conversation.userId, userId),
-      ),
-    );
-  if (!conv) throw new Error("Conversation not found");
+    const [conv] = await db
+      .select()
+      .from(conversation)
+      .where(
+        and(
+          eq(conversation.id, conversationId),
+          eq(conversation.userId, userId),
+        ),
+      );
+    if (!conv) throw new Error("Conversation not found");
 
-  const [offeringRow] = await db
-    .select()
-    .from(offering)
-    .where(eq(offering.id, conv.offeringId));
-  if (!offeringRow) throw new Error("Offering not found");
+    const [offeringRow] = await db
+      .select()
+      .from(offering)
+      .where(eq(offering.id, conv.offeringId));
+    if (!offeringRow) throw new Error("Offering not found");
 
-  const [promptRow] = await db
-    .select()
-    .from(prompt)
-    .where(eq(prompt.id, conv.promptId));
-  if (!promptRow) throw new Error("Prompt not found");
+    const [promptRow] = await db
+      .select()
+      .from(prompt)
+      .where(eq(prompt.id, conv.promptId));
+    if (!promptRow) throw new Error("Prompt not found");
 
-  const [prospectRow] = await db
-    .select()
-    .from(prospect)
-    .where(eq(prospect.id, conv.prospectId));
-  if (!prospectRow) throw new Error("Prospect not found");
+    const [prospectRow] = await db
+      .select()
+      .from(prospect)
+      .where(eq(prospect.id, conv.prospectId));
+    if (!prospectRow) throw new Error("Prospect not found");
 
-  const sources = await db
-    .select({
-      type: prospectSource.type,
-      extractedContext: prospectSource.extractedContext,
-      status: prospectSource.status,
-    })
-    .from(prospectSource)
-    .where(eq(prospectSource.prospectId, prospectRow.id))
-    .orderBy(desc(prospectSource.createdAt));
+    const sources = await db
+      .select({
+        type: prospectSource.type,
+        extractedContext: prospectSource.extractedContext,
+        status: prospectSource.status,
+      })
+      .from(prospectSource)
+      .where(eq(prospectSource.prospectId, prospectRow.id))
+      .orderBy(desc(prospectSource.createdAt));
 
-  const prospectContext = buildProspectContext(prospectRow.name, sources);
+    const prospectContext = buildProspectContext(prospectRow.name, sources);
 
-  const thread = await db
-    .select({ role: message.role, content: message.content })
-    .from(message)
-    .where(eq(message.conversationId, conversationId))
-    .orderBy(asc(message.createdAt));
+    const thread = await db
+      .select({ role: message.role, content: message.content })
+      .from(message)
+      .where(eq(message.conversationId, conversationId))
+      .orderBy(asc(message.createdAt));
 
-  const result = await generateReply({
-    systemPrompt: promptRow.systemPrompt,
-    offering: offeringRow.content || offeringRow.name,
-    prospect: prospectContext,
-    thread,
-  });
+    const result = await generateReply({
+      systemPrompt: promptRow.systemPrompt,
+      offering: offeringRow.content || offeringRow.name,
+      prospect: prospectContext,
+      thread,
+    });
 
-  const [msg] = await db
-    .insert(message)
-    .values({
-      conversationId,
-      role: "outreach",
-      content: result.text,
-      model: result.model,
-    })
-    .returning();
+    const [msg] = await db
+      .insert(message)
+      .values({
+        conversationId,
+        role: "outreach",
+        content: result.text,
+        model: result.model,
+      })
+      .returning();
 
-  return { conversationId, message: msg };
+    return { ok: true, conversationId, message: msg };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }

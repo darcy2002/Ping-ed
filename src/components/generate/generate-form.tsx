@@ -45,11 +45,13 @@ export function GenerateForm({
   prompts: PromptOption[];
   prospects: Option[];
 }) {
-  const [offeringId, setOfferingId] = useState(offerings[0]?.id ?? "");
+  // Only the prompt is pre-selected (the user's default). Offering and prospect
+  // start empty so the user makes a deliberate choice each time.
+  const [offeringId, setOfferingId] = useState("");
   const [promptId, setPromptId] = useState(
     prompts.find((p) => p.isDefault)?.id ?? prompts[0]?.id ?? "",
   );
-  const [prospectId, setProspectId] = useState(prospects[0]?.id ?? "");
+  const [prospectId, setProspectId] = useState("");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -89,14 +91,18 @@ export function GenerateForm({
         prospectId,
         ...(steer && { angle: steer }),
       });
+      if (!res.ok) {
+        // The detailed reason is in the action's response payload (Network tab);
+        // users just get a friendly message.
+        setError("Could not generate a message. Please try again.");
+        return;
+      }
       // A fresh outreach starts a new conversation, so reset the thread.
       setConversationId(res.conversationId);
       setThread([res.message]);
       setReplyText("");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not generate a message.",
-      );
+    } catch {
+      setError("Could not generate a message. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -166,10 +172,8 @@ export function GenerateForm({
       const reply = await addProspectReply(conversationId, text);
       setThread((prev) => [...prev, reply]);
       setReplyText("");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not save the reply.",
-      );
+    } catch {
+      setError("Could not save the reply. Please try again.");
     } finally {
       setAddingReply(false);
     }
@@ -182,11 +186,13 @@ export function GenerateForm({
     setFollowingUp(true);
     try {
       const res = await generateReplyMessage(conversationId);
+      if (!res.ok) {
+        setError("Could not generate a follow-up. Please try again.");
+        return;
+      }
       setThread((prev) => [...prev, res.message]);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not generate a follow-up.",
-      );
+    } catch {
+      setError("Could not generate a follow-up. Please try again.");
     } finally {
       setFollowingUp(false);
     }
