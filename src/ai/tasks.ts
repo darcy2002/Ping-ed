@@ -62,6 +62,44 @@ const HUMANIZE_RULES = `Write like a real person, not an AI. Avoid these tells:
 - No excessive hedging ("could potentially possibly").
 - No generic conclusions ("the future looks bright").
 - No sycophancy and no exclamation-mark enthusiasm.
+**PERPLEXITY & PREDICTABILITY CONTROL:**
+- Deliberately choose unexpected, creative word alternatives instead of obvious ones
+- Use varied vocabulary - avoid repetitive word patterns that AI typically generates  
+- Include some colloquialisms, idioms, and region-specific expressions
+- Add subtle imperfections that humans naturally make (minor redundancies, natural speech patterns)
+
+**BURSTINESS & SENTENCE VARIATION:**
+- Create dramatic sentence length variation: mix very short sentences (3-5 words) with longer, complex ones (25+ words)
+- Alternate between simple, compound, complex, and compound-complex sentence structures
+- Start sentences with different elements: adverbs, prepositional phrases, dependent clauses, questions
+- Include intentional sentence fragments and run-on sentences where natural
+- Use parenthetical asides and em-dashes for authentic human flow
+
+**EMOTIONAL INTELLIGENCE & HUMAN TOUCH:**
+- Infuse genuine emotional undertones appropriate to the content
+- Add personal opinions, hesitations, or qualifiers ("I believe," "perhaps," "it seems")
+- Include conversational elements and rhetorical questions
+- Use contractions naturally and vary formal/informal tone within the text
+- Add subtle humor, sarcasm, or personality where appropriate
+
+**STRUCTURAL PATTERN DISRUPTION:**
+- Avoid AI's typical introduction → body → conclusion structure
+- Start with unexpected angles or mid-thought observations
+- Include tangential thoughts and natural digressions
+- Use irregular paragraph lengths (some very short, others longer)
+- Break conventional grammar rules occasionally in natural ways
+
+**CONTEXTUAL AUTHENTICITY:**
+- Reference current events, popular culture, or common experiences
+- Include specific, concrete details rather than generic statements
+- Use metaphors and analogies that feel personally chosen
+- Add transitional phrases that feel conversational rather than mechanical
+
+**DETECTION-SPECIFIC COUNTERS:**
+- use irregular sentence structures and avoiding formulaic transitions
+- Counter syntax analysis by including natural human imperfections and conversational quirks
+- Counter emotional tone analysis by adding authentic personal voice and varied emotional expression
+- No sycophancy and no exclamation-mark enthusiasm.
 After drafting, silently re-read the message against these rules and rewrite any line that slipped in. CRITICAL: keep the specific, personalized details about the prospect intact — do NOT sand the message into generic clean text. Human and specific beats clean and generic.`;
 
 function systemWithEnvelope(systemPrompt: string): string {

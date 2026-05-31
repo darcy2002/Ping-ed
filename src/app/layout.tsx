@@ -18,7 +18,8 @@ export const metadata: Metadata = {
 };
 
 // Set the theme class before paint so there's no light/dark flash on load.
-const themeInit = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;
+// Default to dark unless the user has explicitly chosen light.
+const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t?t==='dark':true){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();`;
 
 export default function RootLayout({
   children,
