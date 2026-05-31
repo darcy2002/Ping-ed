@@ -1,13 +1,10 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getConversationsByProspect } from "@/lib/conversation-actions";
-import { Monogram } from "@/components/brand";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { ProspectConversations } from "@/components/prospects/prospect-conversations";
+import { ConversationGroup } from "@/components/conversations/conversation-group";
 
 export default async function ConversationsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -33,26 +30,7 @@ export default async function ConversationsPage() {
             </CardContent>
           </Card>
         ) : (
-          groups.map((g) => (
-            <div key={g.prospectId} className="flex flex-col gap-3">
-              <Link
-                href={`/prospects/${g.prospectId}`}
-                className="flex w-fit items-center gap-2.5 text-foreground"
-              >
-                <Monogram name={g.prospectName} size={32} />
-                <span className="font-semibold">{g.prospectName}</span>
-                <span className="text-xs text-muted-foreground">
-                  {g.conversations.length} conversation
-                  {g.conversations.length === 1 ? "" : "s"}
-                </span>
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </Link>
-              <ProspectConversations
-                conversations={g.conversations}
-                showHeading={false}
-              />
-            </div>
-          ))
+          groups.map((g) => <ConversationGroup key={g.prospectId} group={g} />)
         )}
       </div>
     </main>
