@@ -9,8 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export function ProspectConversations({
   conversations,
+  showHeading = true,
 }: {
   conversations: ConversationSummary[];
+  showHeading?: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -23,9 +25,11 @@ export function ProspectConversations({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-        Conversations ({conversations.length})
-      </h2>
+      {showHeading && (
+        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          Conversations ({conversations.length})
+        </h2>
+      )}
 
       {conversations.length === 0 ? (
         <Card>

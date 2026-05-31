@@ -10,6 +10,7 @@ import {
   Layers,
   LogOut,
   Menu,
+  MessageSquare,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: "/offerings", label: "Offerings", Icon: Layers },
   { href: "/prompts", label: "Prompts", Icon: FileText },
   { href: "/prospects", label: "Prospects", Icon: Users },
+  { href: "/conversations", label: "Conversations", Icon: MessageSquare },
   { href: "/analytics", label: "Analytics", Icon: BarChart3 },
 ];
 
