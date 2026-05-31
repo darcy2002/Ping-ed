@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Plus, X } from "lucide-react";
 import {
   createOffering,
   explainOffering,
@@ -37,7 +38,9 @@ export function OfferingFormDialog({
   const isEdit = Boolean(offering);
 
   const [name, setName] = useState(offering?.name ?? "");
-  const [sourceUrl, setSourceUrl] = useState(offering?.sourceUrl ?? "");
+  const [urls, setUrls] = useState<string[]>(
+    offering?.sourceUrl ? [offering.sourceUrl] : [""],
+  );
   const [content, setContent] = useState(offering?.content ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -45,17 +48,47 @@ export function OfferingFormDialog({
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explaining, setExplaining] = useState(false);
 
-  async function onScrape() {
+  const filledUrls = urls.map((u) => u.trim()).filter((u) => u !== "");
+
+  function updateUrl(i: number, value: string) {
+    setUrls((prev) => prev.map((u, idx) => (idx === i ? value : u)));
+  }
+  function addUrl() {
+    setUrls((prev) => [...prev, ""]);
+  }
+  function removeUrl(i: number) {
+    setUrls((prev) =>
+      prev.length === 1 ? [""] : prev.filter((_, idx) => idx !== i),
+    );
+  }
+
+  // Scrape every non-empty URL and append each page into the content (labelled
+  // by source) so multiple pages combine into one offering, still editable.
+  async function onScrapeAll() {
+    const targets = filledUrls;
+    if (targets.length === 0) return;
     setError(null);
     setScraping(true);
-    try {
-      const markdown = await scrapeOfferingContent(sourceUrl);
-      setContent(markdown);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not scrape the URL.");
-    } finally {
-      setScraping(false);
+    const blocks: string[] = [];
+    const failed: string[] = [];
+    for (const url of targets) {
+      try {
+        const markdown = await scrapeOfferingContent(url);
+        blocks.push(`## Source: ${url}\n\n${markdown}`);
+      } catch {
+        failed.push(url);
+      }
     }
+    if (blocks.length > 0) {
+      const addition = blocks.join("\n\n");
+      setContent((prev) =>
+        prev.trim() === "" ? addition : `${prev.trim()}\n\n${addition}`,
+      );
+    }
+    if (failed.length > 0) {
+      setError(`Couldn't scrape: ${failed.join(", ")}`);
+    }
+    setScraping(false);
   }
 
   async function onExplain() {
@@ -80,7 +113,7 @@ export function OfferingFormDialog({
     try {
       const payload = {
         name,
-        sourceUrl: sourceUrl.trim() === "" ? null : sourceUrl.trim(),
+        sourceUrl: filledUrls[0] ?? null,
         content,
       };
       if (offering) {
@@ -136,28 +169,60 @@ export function OfferingFormDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="sourceUrl">Source URL (optional)</Label>
-            <div className="flex gap-2">
-              <Input
-                id="sourceUrl"
-                type="url"
-                value={sourceUrl}
-                onChange={(e) => setSourceUrl(e.target.value)}
-                placeholder="https://..."
-                className="flex-1"
-              />
+            <div className="flex items-center justify-between">
+              <Label>Source URLs (optional)</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addUrl}
+              >
+                <Plus className="size-3.5" /> Add URL
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {urls.map((url, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input
+                    type="url"
+                    value={url}
+                    onChange={(e) => updateUrl(i, e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1"
+                  />
+                  {urls.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeUrl(i)}
+                      aria-label="Remove URL"
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Scrape one or more pages into the content below, then edit. Each
+                is appended.
+              </p>
               <Button
                 type="button"
                 variant="outline"
-                onClick={onScrape}
-                disabled={scraping || sourceUrl.trim() === ""}
+                size="sm"
+                onClick={onScrapeAll}
+                disabled={scraping || filledUrls.length === 0}
               >
-                {scraping ? "Scraping..." : "Scrape"}
+                {scraping
+                  ? "Scraping..."
+                  : filledUrls.length > 1
+                    ? "Scrape all"
+                    : "Scrape"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Pull the page into the content field below, then edit it.
-            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="content">Content</Label>
